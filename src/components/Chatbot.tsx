@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, MessageCircle, Send, Bot, User, Brain, TrendingUp, Users, AlertCircle } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Send, Bot, User, Brain, TrendingUp, Users, AlertCircle, Wifi, WifiOff } from 'lucide-react';
 import { AttendanceRecord, Student, ChatMessage } from '../types';
+import { chatAPI } from '../services/api';
 
 interface ChatbotProps {
   attendanceData: AttendanceRecord[];
@@ -13,12 +14,14 @@ export default function Chatbot({ attendanceData, students, onBack }: ChatbotPro
     {
       id: '1',
       message: '',
-      response: 'Hello! I\'m your AI assistant for SmartClass Sentinel+. I can provide real-time insights about attendance, engagement, and classroom analytics. What would you like to know?',
+      response: 'Hello! I\'m your AI assistant powered by Grok AI for SmartClass Sentinel+. I can provide real-time insights about attendance, engagement, and classroom analytics using advanced AI. What would you like to know?',
       timestamp: new Date().toISOString(),
     }
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -29,156 +32,20 @@ export default function Chatbot({ attendanceData, students, onBack }: ChatbotPro
     scrollToBottom();
   }, [messages]);
 
-  const getClassroomInsights = () => {
-    const today = new Date().toDateString();
-    const todayRecords = attendanceData.filter(record => 
-      new Date(record.timestamp).toDateString() === today
-    );
+  useEffect(() => {
+    checkBackendHealth();
+  }, []);
 
-    const presentStudents = new Set(todayRecords.map(r => r.studentId)).size;
-    const attendanceRate = Math.round((presentStudents / students.length) * 100);
-    
-    const emotionCounts = todayRecords.reduce((acc, record) => {
-      acc[record.emotion] = (acc[record.emotion] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    const positiveEmotions = ['happy', 'focused'];
-    const engagementScore = todayRecords.length > 0
-      ? Math.round((todayRecords.filter(r => positiveEmotions.includes(r.emotion)).length / todayRecords.length) * 100)
-      : 0;
-
-    return {
-      totalRecords: todayRecords.length,
-      presentStudents,
-      totalStudents: students.length,
-      attendanceRate,
-      engagementScore,
-      emotionCounts,
-      dominantEmotion: Object.keys(emotionCounts).reduce((a, b) => 
-        emotionCounts[a] > emotionCounts[b] ? a : b, 'neutral'
-      ),
-    };
-  };
-
-  const generateAIResponse = async (userMessage: string): Promise<string> => {
-    const insights = getClassroomInsights();
-    const lowerMessage = userMessage.toLowerCase();
-
-    // Real-time data analysis responses
-    if (lowerMessage.includes('attendance') || lowerMessage.includes('present')) {
-      return `Today's attendance is ${insights.attendanceRate}% with ${insights.presentStudents} out of ${insights.totalStudents} students present. ${
-        insights.attendanceRate >= 80 ? 'Great attendance today!' : 
-        insights.attendanceRate >= 60 ? 'Moderate attendance - consider following up with absent students.' :
-        'Low attendance - immediate action recommended.'
-      }`;
+  const checkBackendHealth = async () => {
+    try {
+      await chatAPI.healthCheck();
+      setBackendStatus('online');
+      setIsOnline(true);
+    } catch (error) {
+      console.error('Backend health check failed:', error);
+      setBackendStatus('offline');
+      setIsOnline(false);
     }
-
-    if (lowerMessage.includes('engagement') || lowerMessage.includes('emotion')) {
-      const emotionSummary = Object.entries(insights.emotionCounts)
-        .map(([emotion, count]) => `${emotion}: ${count}`)
-        .join(', ');
-      
-      return `Current engagement score is ${insights.engagementScore}%. Dominant emotion: ${insights.dominantEmotion}. Breakdown: ${emotionSummary || 'No data yet'}. ${
-        insights.engagementScore >= 70 ? 'Students are highly engaged!' :
-        insights.engagementScore >= 50 ? 'Moderate engagement - consider interactive activities.' :
-        'Low engagement detected - recommend energizing the class.'
-      }`;
-    }
-
-    if (lowerMessage.includes('recommend') || lowerMessage.includes('suggest')) {
-      const recommendations = [];
-      
-      if (insights.attendanceRate < 70) {
-        recommendations.push('• Send attendance alerts to absent students');
-        recommendations.push('• Review attendance patterns for early intervention');
-      }
-      
-      if (insights.engagementScore < 60) {
-        recommendations.push('• Incorporate more interactive activities');
-        recommendations.push('• Take a short break to re-energize students');
-        recommendations.push('• Consider changing teaching method or pace');
-      }
-      
-      if (insights.emotionCounts.sleepy > 3) {
-        recommendations.push('• Room may need better ventilation or lighting');
-        recommendations.push('• Consider a quick energizer activity');
-      }
-      
-      if (insights.emotionCounts.bored > 2) {
-        recommendations.push('• Introduce multimedia content or group activities');
-        recommendations.push('• Check if content difficulty is appropriate');
-      }
-
-      return recommendations.length > 0 
-        ? `Based on current data, here are my recommendations:\n\n${recommendations.join('\n')}`
-        : 'Great job! Your class is performing well. Keep up the excellent engagement strategies.';
-    }
-
-    if (lowerMessage.includes('summary') || lowerMessage.includes('report')) {
-      return `📊 **Classroom Summary**\n\n` +
-        `👥 **Attendance**: ${insights.presentStudents}/${insights.totalStudents} (${insights.attendanceRate}%)\n` +
-        `🧠 **Engagement**: ${insights.engagementScore}%\n` +
-        `😊 **Dominant Emotion**: ${insights.dominantEmotion}\n` +
-        `📈 **Total Records**: ${insights.totalRecords}\n\n` +
-        `${insights.attendanceRate >= 80 && insights.engagementScore >= 70 ? 
-          '✅ Excellent classroom performance!' : 
-          '⚠️ Areas for improvement identified - ask for recommendations!'}`;
-    }
-
-    if (lowerMessage.includes('trend') || lowerMessage.includes('pattern')) {
-      const last7Days = Array.from({ length: 7 }, (_, i) => {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        return date.toDateString();
-      }).reverse();
-
-      const dailyAttendance = last7Days.map(date => {
-        const dayRecords = attendanceData.filter(record => 
-          new Date(record.timestamp).toDateString() === date
-        );
-        return new Set(dayRecords.map(r => r.studentId)).size;
-      });
-
-      const avgAttendance = Math.round(dailyAttendance.reduce((a, b) => a + b, 0) / 7);
-      const trend = dailyAttendance[6] > dailyAttendance[0] ? 'increasing' : 
-                   dailyAttendance[6] < dailyAttendance[0] ? 'decreasing' : 'stable';
-
-      return `📈 **Weekly Trends**\n\n` +
-        `Average attendance over 7 days: ${avgAttendance} students\n` +
-        `Trend: ${trend}\n` +
-        `Today vs. week ago: ${dailyAttendance[6]} vs ${dailyAttendance[0]} students\n\n` +
-        `${trend === 'increasing' ? '✅ Positive trend!' : 
-          trend === 'decreasing' ? '⚠️ Declining attendance needs attention' : 
-          '➡️ Stable attendance pattern'}`;
-    }
-
-    if (lowerMessage.includes('help') || lowerMessage.includes('what can you')) {
-      return `🤖 **I can help you with:**\n\n` +
-        `📊 **Analytics**: Ask about attendance rates, engagement scores, trends\n` +
-        `😊 **Emotions**: Get insights on student emotions and engagement\n` +
-        `💡 **Recommendations**: Get AI-powered suggestions to improve your class\n` +
-        `📈 **Reports**: Request summaries and detailed breakdowns\n` +
-        `📋 **Patterns**: Analyze trends and identify concerning patterns\n\n` +
-        `**Try asking**: "What's my attendance today?" or "Give me recommendations"`;
-    }
-
-    // Simulate API call to Grok/xAI for more complex queries
-    if (lowerMessage.includes('predict') || lowerMessage.includes('forecast')) {
-      return `🔮 **Predictive Analysis**\n\n` +
-        `Based on current patterns, I predict:\n` +
-        `• Next class attendance: ${Math.max(0, insights.attendanceRate + Math.random() * 10 - 5).toFixed(0)}%\n` +
-        `• Optimal teaching time: ${insights.emotionCounts.focused > insights.emotionCounts.sleepy ? 'Morning sessions work well' : 'Consider afternoon energy boosters'}\n` +
-        `• Risk factors: ${insights.engagementScore < 60 ? 'Low engagement trend detected' : 'Positive engagement trajectory'}\n\n` +
-        `💡 These predictions are based on historical classroom data and AI analysis.`;
-    }
-
-    // Default intelligent response
-    return `I understand you're asking about "${userMessage}". Based on your current classroom data:\n\n` +
-      `• ${insights.totalRecords} interactions recorded today\n` +
-      `• ${insights.attendanceRate}% attendance rate\n` +
-      `• ${insights.engagementScore}% engagement level\n\n` +
-      `For more specific insights, try asking about attendance, engagement, recommendations, or trends!`;
   };
 
   const handleSendMessage = async () => {
@@ -199,25 +66,59 @@ export default function Chatbot({ attendanceData, students, onBack }: ChatbotPro
     setMessages(prev => [...prev, newMessage]);
 
     try {
-      // Generate AI response
-      const aiResponse = await generateAIResponse(userMessage);
+      // Call backend API with Grok integration
+      const response = await chatAPI.sendMessage(userMessage, attendanceData, students);
       
       // Update the message with AI response
       setMessages(prev => prev.map(msg => 
         msg.id === newMessage.id 
-          ? { ...msg, response: aiResponse }
+          ? { 
+              ...msg, 
+              response: response.response,
+              insights: response.insights,
+              fallback: response.fallback 
+            }
           : msg
       ));
+
+      // Update online status
+      setIsOnline(true);
+      setBackendStatus('online');
+      
     } catch (error) {
-      console.error('Error generating response:', error);
+      console.error('Error getting AI response:', error);
+      
+      // Fallback to local response
+      const fallbackResponse = generateLocalFallback(userMessage);
       setMessages(prev => prev.map(msg => 
         msg.id === newMessage.id 
-          ? { ...msg, response: 'Sorry, I encountered an error. Please try again.' }
+          ? { ...msg, response: fallbackResponse, fallback: true }
           : msg
       ));
+      
+      setIsOnline(false);
+      setBackendStatus('offline');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const generateLocalFallback = (message: string): string => {
+    const lowerMessage = message.toLowerCase();
+    const presentStudents = new Set(attendanceData.map(r => r.studentId)).size;
+    const attendanceRate = Math.round((presentStudents / students.length) * 100);
+    
+    if (lowerMessage.includes('attendance')) {
+      return `📊 Today's attendance is ${attendanceRate}% with ${presentStudents} out of ${students.length} students present. (Note: AI service temporarily unavailable - showing basic stats)`;
+    }
+    
+    if (lowerMessage.includes('engagement')) {
+      const positiveEmotions = attendanceData.filter(r => ['happy', 'focused'].includes(r.emotion)).length;
+      const engagementScore = attendanceData.length > 0 ? Math.round((positiveEmotions / attendanceData.length) * 100) : 0;
+      return `🧠 Current engagement score is ${engagementScore}%. (Note: AI service temporarily unavailable - showing basic calculation)`;
+    }
+    
+    return `I understand you're asking about "${message}". The AI service is currently unavailable, but I can provide basic classroom statistics. Try asking about attendance or engagement for available data.`;
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -256,9 +157,21 @@ export default function Chatbot({ attendanceData, students, onBack }: ChatbotPro
                 <h1 className="text-xl font-bold text-gray-900">AI Assistant</h1>
               </div>
             </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-500">
-              <Brain className="h-4 w-4" />
-              <span>Powered by Advanced AI</span>
+            <div className="flex items-center space-x-4">
+              <div className={`flex items-center space-x-2 text-sm ${
+                backendStatus === 'online' ? 'text-green-600' : 
+                backendStatus === 'offline' ? 'text-red-600' : 'text-yellow-600'
+              }`}>
+                {backendStatus === 'online' ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
+                <span>
+                  {backendStatus === 'checking' ? 'Checking...' :
+                   backendStatus === 'online' ? 'Grok AI Online' : 'Offline Mode'}
+                </span>
+              </div>
+              <div className="flex items-center space-x-2 text-sm text-gray-500">
+                <Brain className="h-4 w-4" />
+                <span>Powered by Grok AI</span>
+              </div>
             </div>
           </div>
         </div>
@@ -278,15 +191,22 @@ export default function Chatbot({ attendanceData, students, onBack }: ChatbotPro
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-900">SmartClass AI</h3>
-                      <p className="text-sm text-green-600 flex items-center">
-                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                        Online
+                      <p className={`text-sm flex items-center ${
+                        isOnline ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        <div className={`w-2 h-2 rounded-full mr-2 ${
+                          isOnline ? 'bg-green-500' : 'bg-red-500'
+                        }`}></div>
+                        {isOnline ? 'Grok AI Connected' : 'Offline Mode'}
                       </p>
                     </div>
                   </div>
-                  <div className="text-sm text-gray-500">
-                    Real-time insights available
-                  </div>
+                  <button
+                    onClick={checkBackendHealth}
+                    className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    Refresh Connection
+                  </button>
                 </div>
               </div>
 
@@ -315,6 +235,11 @@ export default function Chatbot({ attendanceData, students, onBack }: ChatbotPro
                           </div>
                           <div className="bg-gray-100 px-4 py-2 rounded-2xl rounded-bl-sm">
                             <p className="text-sm text-gray-900 whitespace-pre-line">{msg.response}</p>
+                            {(msg as any).fallback && (
+                              <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
+                                ⚠️ Fallback response - AI service unavailable
+                              </div>
+                            )}
                             <p className="text-xs text-gray-500 mt-2">
                               {new Date(msg.timestamp).toLocaleTimeString()}
                             </p>
@@ -332,10 +257,15 @@ export default function Chatbot({ attendanceData, students, onBack }: ChatbotPro
                         <Bot className="h-4 w-4 text-white" />
                       </div>
                       <div className="bg-gray-100 px-4 py-2 rounded-2xl rounded-bl-sm">
-                        <div className="flex space-x-1">
-                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        <div className="flex items-center space-x-2">
+                          <div className="flex space-x-1">
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {isOnline ? 'Grok AI thinking...' : 'Processing locally...'}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -353,7 +283,7 @@ export default function Chatbot({ attendanceData, students, onBack }: ChatbotPro
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    placeholder="Ask about attendance, engagement, or get recommendations..."
+                    placeholder={isOnline ? "Ask Grok AI about attendance, engagement, or get recommendations..." : "AI offline - basic responses available..."}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     disabled={isLoading}
                   />
@@ -371,6 +301,38 @@ export default function Chatbot({ attendanceData, students, onBack }: ChatbotPro
 
           {/* Sidebar */}
           <div className="space-y-6">
+            {/* Connection Status */}
+            <div className={`backdrop-blur-sm rounded-2xl p-6 border shadow-sm ${
+              backendStatus === 'online' ? 'bg-green-50/80 border-green-200' :
+              backendStatus === 'offline' ? 'bg-red-50/80 border-red-200' :
+              'bg-yellow-50/80 border-yellow-200'
+            }`}>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">AI Status</h3>
+              <div className="flex items-center space-x-2">
+                {backendStatus === 'online' ? (
+                  <>
+                    <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-green-700 font-medium">Grok AI Connected</span>
+                  </>
+                ) : backendStatus === 'offline' ? (
+                  <>
+                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                    <span className="text-red-700 font-medium">AI Offline</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
+                    <span className="text-yellow-700 font-medium">Connecting...</span>
+                  </>
+                )}
+              </div>
+              <p className="text-sm text-gray-600 mt-2">
+                {backendStatus === 'online' ? 'Full AI capabilities available' :
+                 backendStatus === 'offline' ? 'Basic responses only' :
+                 'Checking connection...'}
+              </p>
+            </div>
+
             {/* Quick Actions */}
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 shadow-sm">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Questions</h3>
@@ -378,22 +340,22 @@ export default function Chatbot({ attendanceData, students, onBack }: ChatbotPro
                 <QuickActionButton 
                   icon={Users}
                   label="Today's Attendance"
-                  onClick={() => setInputMessage("What's today's attendance?")}
+                  onClick={() => setInputMessage("What's today's attendance rate and how does it compare to our average?")}
                 />
                 <QuickActionButton 
                   icon={TrendingUp}
-                  label="Engagement Score"
-                  onClick={() => setInputMessage("How is student engagement?")}
+                  label="Engagement Analysis"
+                  onClick={() => setInputMessage("Analyze current student engagement and provide detailed insights")}
                 />
                 <QuickActionButton 
                   icon={Brain}
-                  label="Recommendations"
-                  onClick={() => setInputMessage("Give me recommendations")}
+                  label="AI Recommendations"
+                  onClick={() => setInputMessage("Give me personalized recommendations to improve my classroom")}
                 />
                 <QuickActionButton 
                   icon={MessageCircle}
-                  label="Class Summary"
-                  onClick={() => setInputMessage("Generate a summary report")}
+                  label="Predictive Insights"
+                  onClick={() => setInputMessage("What patterns do you see and what should I expect next week?")}
                 />
               </div>
             </div>
@@ -414,28 +376,32 @@ export default function Chatbot({ attendanceData, students, onBack }: ChatbotPro
                   <span className="text-gray-600">Active Sessions:</span>
                   <span className="font-semibold">{new Set(attendanceData.map(r => r.sessionId)).size}</span>
                 </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">AI Responses:</span>
+                  <span className="font-semibold">{messages.filter(m => m.response).length}</span>
+                </div>
               </div>
             </div>
 
             {/* AI Capabilities */}
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">AI Capabilities</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Grok AI Features</h3>
               <div className="space-y-2 text-sm text-gray-600">
                 <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
                   <span>Real-time analysis</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-blue-500' : 'bg-gray-400'}`}></div>
                   <span>Predictive insights</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                  <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-purple-500' : 'bg-gray-400'}`}></div>
                   <span>Smart recommendations</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                  <span>Trend analysis</span>
+                  <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-amber-500' : 'bg-gray-400'}`}></div>
+                  <span>Advanced pattern recognition</span>
                 </div>
               </div>
             </div>
@@ -447,7 +413,10 @@ export default function Chatbot({ attendanceData, students, onBack }: ChatbotPro
                 <div>
                   <h4 className="font-semibold text-blue-900 mb-2">Pro Tips</h4>
                   <p className="text-sm text-blue-700">
-                    Ask specific questions like "Why is engagement low?" or "Predict next week's attendance" for detailed AI insights.
+                    {isOnline 
+                      ? "Ask complex questions like 'Why is engagement dropping?' or 'Predict next week's attendance patterns' for advanced AI insights."
+                      : "AI is offline. Try basic questions about current attendance and engagement for available data."
+                    }
                   </p>
                 </div>
               </div>
