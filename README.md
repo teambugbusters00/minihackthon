@@ -30,6 +30,33 @@ User कोई भी query या command देता है और system उ
 4. 🤖 Grok API returns an AI-generated response
 5. 🖧 Backend formats the response
 6. 🌐 **Frontend** displays the final output
+7. 👤 User
+           │
+           ▼
+🖥️  Frontend (HTML + Tailwind)
+           │
+    (Sends Request)
+           │
+           ▼
+🖧  Backend (Node.js + TypeScript)
+           │
+    (Calls Grok API)
+           │
+           ▼
+🤖  Grok API (LLM - AI Processing)
+           │
+   (Returns Response)
+           │
+           ▼
+🖧  Backend (Processes & Formats)
+           │
+   (Sends to Frontend)
+           │
+           ▼
+🖥️  Frontend (Displays Output)
+           │
+           ▼
+         👤 User Gets Result
 
 ---
 
