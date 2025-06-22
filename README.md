@@ -1,1 +1,70 @@
-minihackthon
+# 🤖 Grok API Integrated Backend System
+
+> Smart AI-powered backend system built using **Node.js**, **TypeScript**, and **Grok API**. Automates natural language tasks with clean UI using **Tailwind CSS** and modern tooling like **Vite**.
+
+---
+
+## 📝 Project Description (Hindi-English Mix)
+
+यह प्रोजेक्ट एक intelligent backend system है जो **OpenAI के Grok API** के साथ integrate किया गया है।  
+User कोई भी query या command देता है और system उसे automatically AI के माध्यम से process करके response देता है।
+
+---
+
+## 🔧 Tech Stack
+
+| Layer      | Tools Used                         |
+|------------|------------------------------------|
+| 🧑‍💻 Frontend  | HTML, Tailwind CSS, Vite            |
+| ⚙️ Backend   | Node.js, TypeScript                 |
+| 🧠 AI Model | Grok API (OpenAI's LLM)             |
+| 🔧 Tooling  | ESLint, PostCSS, TypeScript Configs |
+
+---
+
+## 🔁 Workflow
+
+1. 👤 **User** enters a query in frontend
+2. 🖥️ **Frontend** sends query to backend via HTTP request
+3. 🧠 **Backend** sends this to **Grok API (LLM)** for processing
+4. 🤖 Grok API returns an AI-generated response
+5. 🖧 Backend formats the response
+6. 🌐 **Frontend** displays the final output
+
+---
+
+## 🚀 Features
+
+- ✅ LLM-powered response via Grok API
+- 🔄 Fully automated flow from input to output
+- 🎨 Clean UI with Tailwind CSS
+- ⚡ Fast frontend using Vite
+- 🔐 Secure environment variables via `.env.example`
+- 🧹 Clean and linted code with ESLint & TypeScript
+
+---
+
+## 📁 Folder Structure
+
+---
+
+## 🌐 Live Demo
+
+_Coming Soon_ – Will be hosted on Netlify / Render / Vercel
+
+---
+
+## 🔐 Environment Variables
+
+Make a `.env` file from `.env.example` and add your OpenAI key:
+---
+
+## 🙌 Team
+
+> Developed by **TeamBugBusters00** for Mini Hackathon Project 🚀
+
+---
+
+## 📜 License
+
+This project is open source and available under the [MIT License](LICENSE).
