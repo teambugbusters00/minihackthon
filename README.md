@@ -50,7 +50,7 @@ User कोई भी query या command देता है और system उ
 
 ## 🌐 Live Demo
 
-_Coming Soon_ – Will be hosted on Netlify / Render / Vercel
+bespoke-gumption-d8622e.netlify.app/
 
 ---
 
