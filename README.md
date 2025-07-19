@@ -4,10 +4,8 @@
 
 ---
 
-## 📝 Project Description (Hindi-English Mix)
+## 📝 Project Description
 
-यह प्रोजेक्ट एक intelligent backend system है जो **OpenAI के Grok API** के साथ integrate किया गया है।  
-User कोई भी query या command देता है और system उसे automatically AI के माध्यम से process करके response देता है।
 
 ---
 
