@@ -81,8 +81,7 @@ bespoke-gumption-d8622e.netlify.app/
 
 ## 🔐 Environment Variables
 
-Make a `.env` file from `.env.example` and add your OpenAI key:
----
+env 
 
 ## 🙌 Team
 
